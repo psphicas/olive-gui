@@ -1,5 +1,10 @@
 ---
-version: trunk
+version: 0.13.7
+changes:
+  - ctrl-drag pieces to copy (instead of move)
+  - right-click piece in box to select it
+  - right-click empty square to place selected piece
+  - right-click piece on board to remove it (and select it)
 todo: 
   - override pieces glyphs
   - yacpdb communication: check, add, sync down, sync up

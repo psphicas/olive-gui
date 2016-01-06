@@ -47,6 +47,7 @@ class Mainframe(QtGui.QMainWindow):
     transform_icons = ['up','down','left',\
         'right','rotate-clockwise','rotate-anticlockwise',\
         'left-right','up-down', 'switch','out']
+    selectedPiece = None
 
     class CheckNewVersion(QtCore.QThread): 
         def __init__(self, parent):
@@ -696,12 +697,13 @@ class AboutDialog(QtGui.QDialog):
         lblLogo.setPixmap(iconLogo.pixmap(331, 139))
         vbox.addWidget(lblLogo, QtCore.Qt.AlignCenter)
         vbox.addWidget(ClickableLabel('olive v'+Conf.value('version') + ' is free software licensed under GNU GPL'))
-        vbox.addWidget(ClickableLabel(u'© 2011-2013'))
+        vbox.addWidget(ClickableLabel(u'© 2011-2016'))
         vbox.addWidget(ClickableLabel(u'Project contributors:'))
         vbox.addWidget(ClickableLabel(u'<b>Mihail Croitor</b> - Moldova'))
         vbox.addWidget(ClickableLabel(u'<b>Борислав Гађански</b> - Serbia'))
         vbox.addWidget(ClickableLabel(u'<b>Torsten Linß</b> - Germany'))
         vbox.addWidget(ClickableLabel(u'<b>Дмитрий Туревский</b> - Russia'))
+        vbox.addWidget(ClickableLabel(u'<b>Phil Sphicas</b> - USA'))
         vbox.addWidget(ClickableLabel('For more information please visit <a href="http://code.google.com/p/olive-gui/">http://code.google.com/p/olive-gui/</a>'))
 
         vbox.addStretch(1)
@@ -1011,16 +1013,34 @@ class DraggableLabel(QtGui.QLabel):
 
     def mousePressEvent(self, e): # mouseMoveEvent works as well but with slightly different mechanics
         Mainframe.sigWrapper.sigFocusOnPieces.emit()
-    
         if e.buttons() != QtCore.Qt.LeftButton:
+            # On right click
+            # if the square is empty, add the selected piece
+            # if the square is non-empty, remove it
+            if Mainframe.model.board.board[self.id] is None:
+                if Mainframe.selectedPiece is not None:
+                    Mainframe.model.board.add(model.Piece(Mainframe.selectedPiece.name,
+                                                          Mainframe.selectedPiece.color,
+                                                          Mainframe.selectedPiece.specs),
+                                              self.id)
+                else:
+                    return
+            else:
+                Mainframe.selectedPiece = Mainframe.model.board.board[self.id]
+                Mainframe.model.board.drop(self.id)
+            Mainframe.model.onBoardChanged()
+            Mainframe.sigWrapper.sigModelChanged.emit()
             return
         if Mainframe.model.board.board[self.id] is None:
             return
 
+        # ctrl-drag copies existing piece
+        modifiers = QtGui.QApplication.keyboardModifiers()
         Mainframe.currentlyDragged = Mainframe.model.board.board[self.id]
-        Mainframe.model.board.drop(self.id)
-        Mainframe.model.onBoardChanged()
-        Mainframe.sigWrapper.sigModelChanged.emit()
+        if not (modifiers & QtCore.Qt.ControlModifier):
+            Mainframe.model.board.drop(self.id)
+            Mainframe.model.onBoardChanged()
+            Mainframe.sigWrapper.sigModelChanged.emit()
         
         mimeData = QtCore.QMimeData()
         drag = QtGui.QDrag(self)
@@ -1071,6 +1091,8 @@ class ChessBoxItem(QtGui.QLabel):
         if self.piece is None:
             return
         if e.buttons() != QtCore.Qt.LeftButton:
+            # right click selects a piece
+            Mainframe.selectedPiece = self.piece
             return
 
         Mainframe.currentlyDragged = self.piece        
@@ -1238,7 +1260,7 @@ class InfoView(QtGui.QTextEdit):
         
 class ChessBox(QtGui.QWidget):
     rows, cols = 3, 7
-    
+
     def __init__(self):
         super(ChessBox, self).__init__()
         self.gboxOrtho = QtGui.QGroupBox(Lang.value('TC_Pieces_Ortho'))
